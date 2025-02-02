@@ -36,7 +36,7 @@ public class QuizService {
             QuizInfoResponse quizInfoResponse = new QuizInfoResponse().createQuizInfoResponse(optionalQuiz.get());
             return ResponseEntity.ok(quizInfoResponse);  // Return 200 OK with the quiz data
         } else {
-            throw new QuizNotFoundException("Quiz not found with ID: " + id);
+            throw new NotFoundException("Quiz not found with ID: " + id);
         }
     }
 
@@ -80,7 +80,7 @@ public class QuizService {
             return ResponseEntity.ok(quizResponse);
 
         } catch (BadRequestException e) {
-            throw new QuizNotFoundException(e.getMessage());
+            throw new NotFoundException(e.getMessage());
         } catch (NumberFormatException e) {
             throw new BadRequestException("Invalid quiz ID format: " + quizId);
         } catch (Exception e) {

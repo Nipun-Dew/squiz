@@ -5,6 +5,7 @@ import com.example.squiz.dtos.SessionResponse;
 import com.example.squiz.entities.SessionsEB;
 import com.example.squiz.entities.AnswersEB;
 import com.example.squiz.entities.QuizEB;
+import com.example.squiz.exceptions.customExceptions.*;
 import com.example.squiz.repos.SessionsRepository;
 import com.example.squiz.repos.AnswersRepository;
 import com.example.squiz.repos.QuizRepository;
@@ -33,63 +34,101 @@ public class SessionsService {
 
     public ResponseEntity<SessionResponse> getSession(String id) {
         try {
-            Optional<SessionsEB> optionalSession = sessionsRepository.findById(Long.parseLong(id));
+            Long parsedId = Long.parseLong(id);
 
-            return optionalSession
-                    .map(session -> ResponseEntity.ok(new SessionResponse().createSessionResponse(session)))
-                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).body(new SessionResponse()));
+            SessionsEB session = sessionsRepository.findById(parsedId)
+                    .orElseThrow(() -> new NoContentException("No session found with ID: " + id));
+
+            SessionResponse response = new SessionResponse().createSessionResponse(session);
+            return ResponseEntity.ok(response);
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage());
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid session ID format: " + id);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new SessionResponse());
+            throw new InternalServerErrorException("An unexpected error occurred while fetching session: " + e.getMessage());
         }
     }
 
     public ResponseEntity<SessionResponse> createNewSession(SessionRequest sessionRequest, String username) {
         try {
             QuizEB quizEntity = quizRepository.findById(sessionRequest.getQuizId().longValue())
-                    .orElseThrow();
-            SessionsEB savedSession = sessionsRepository
-                    .save(sessionRequest.createSessionEntity(quizEntity, username));
+                    .orElseThrow(() -> new NotFoundException("No quiz found with ID: " + sessionRequest.getQuizId()));
+
+            SessionsEB savedSession = sessionsRepository.save(sessionRequest.createSessionEntity(quizEntity, username));
+
             return ResponseEntity.ok(new SessionResponse().createSessionResponse(savedSession));
+
+        } catch (NotFoundException e) {
+            throw e;
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid quiz ID format: " + sessionRequest.getQuizId());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new SessionResponse());
+            throw new InternalServerErrorException("An unexpected error occurred while creating a session: " + e.getMessage());
         }
     }
 
     public ResponseEntity<List<SessionResponse>> getSessionsForQuiz(String quizId) {
         try {
-            List<SessionsEB> results = sessionsRepository.findSessionsByQuiz_Id(Long.parseLong(quizId));
+            Long parsedQuizId = Long.parseLong(quizId);
+            List<SessionsEB> results = sessionsRepository.findSessionsByQuiz_Id(parsedQuizId);
+
+            if (results.isEmpty()) {
+                throw new NoContentException("No sessions found for quiz ID: " + quizId);
+            }
+
             List<SessionResponse> sessionsResponse = results.stream()
                     .map(result -> new SessionResponse().createSessionResponse(result))
                     .toList();
+
             return ResponseEntity.ok(sessionsResponse);
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage()); // Convert NoContent to NotFound (404)
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid quiz ID format: " + quizId);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ArrayList<>());
+            throw new InternalServerErrorException("An unexpected error occurred while fetching sessions: " + e.getMessage());
         }
     }
 
-    public ResponseEntity<SessionResponse> getSessionForQuizByUserId(String quizId, String username) {
+    public ResponseEntity<SessionResponse> getSessionForQuizByUserId(String quizId, String username) { // couldn't test properly
         try {
-            Optional<SessionsEB> optionalSession = sessionsRepository.getSessionsForQuizByUserId(Long.parseLong(quizId), username);
+            Long parsedQuizId = Long.parseLong(quizId);
+            Optional<SessionsEB> optionalSession = sessionsRepository.getSessionsForQuizByUserId(parsedQuizId, username);
+
             return optionalSession.map(session ->
                             ResponseEntity.ok(new SessionResponse().createSessionResponse(session)))
-                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).body(new SessionResponse()));
+                    .orElseThrow(() -> new NoContentException("No session found for quiz ID: " + quizId + " and user: " + username));
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage()); // Converts 204 to 404
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid quiz ID format: " + quizId);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new SessionResponse());
+            throw new InternalServerErrorException("An unexpected error occurred while fetching session: " + e.getMessage());
         }
     }
 
     public ResponseEntity<Integer> getPointsForSession(String sessionId) {
         try {
-            List<AnswersEB> results = answersRepository.findAnswersBySession_Id(Long.parseLong(sessionId));
-            Integer points = results.stream().filter(AnswersEB::getIsCorrectAnswer).toList().size();
+            Long parsedSessionId = Long.parseLong(sessionId);
+            List<AnswersEB> results = answersRepository.findAnswersBySession_Id(parsedSessionId);
 
+            if (results.isEmpty()) {
+                throw new NoContentException("No answers found for session ID: " + sessionId);
+            }
+
+            int points = (int) results.stream().filter(AnswersEB::getIsCorrectAnswer).count();
             return ResponseEntity.ok(points);
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage()); // Converts 204 to 404
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid session ID format: " + sessionId);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(-1);
+            throw new InternalServerErrorException("An unexpected error occurred while fetching session points: " + e.getMessage());
         }
     }
 
@@ -98,20 +137,27 @@ public class SessionsService {
             Optional<SessionsEB> optionalSession = sessionsRepository.findById(Long.parseLong(sessionId));
 
             if (optionalSession.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(-1);
+                throw new NoContentException("There is no session with this session id");
+
             }
 
             SessionsEB session = optionalSession.get();
             if (!session.getUserId().equals(userName)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(-1);
+                throw new UnauthorizedException("You are not authorized to complete this session");
             }
 
             session.setCompleted(true);
             SessionsEB savedSession = sessionsRepository.save(session);
 
             return ResponseEntity.ok(savedSession.getId().intValue());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (NoContentException e) {
+            throw new NoContentException(e.getMessage());
+        }
+//        catch (UnauthorizedException e) {
+//            throw new UnauthorizedException(e.getMessage());
+//        }
+        catch (Exception e) {
+            throw new InternalServerErrorException("An unexpected error occurred while completing the session: " + e.getMessage());
         }
     }
 }

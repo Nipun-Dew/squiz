@@ -8,6 +8,7 @@ import com.example.squiz.services.SessionsService;
 import com.example.squiz.services.AnswersService;
 import com.example.squiz.utils.UserDetailsUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -35,19 +36,19 @@ public class AnswerController implements UserDetailsUtil {
         this.answerService = answerService;
     }
 
-    @GetMapping("/session/{id}")
+    @GetMapping(value = "/session/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<SessionResponse> getSessionById(@PathVariable String id) {
         return sessionsService.getSession(id);
     }
 
-    @GetMapping("/session/quiz/{quizId}")
+    @GetMapping(value = "/session/quiz/{quizId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<SessionResponse>> getSessionsForQuiz(@PathVariable String quizId) {
         return sessionsService.getSessionsForQuiz(quizId);
     }
 
-    @GetMapping("/session/user/quiz/{quizId}")
+    @GetMapping(value = "/session/user/quiz/{quizId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<SessionResponse> getSessionForQuiz(@PathVariable String quizId,
                                                              Authentication authentication) {
@@ -55,19 +56,19 @@ public class AnswerController implements UserDetailsUtil {
         return sessionsService.getSessionForQuizByUserId(quizId, username);
     }
 
-    @GetMapping("/session/answer/{id}")
+    @GetMapping(value = "/session/answer/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<AnswersResponse> getAnswerById(@PathVariable String id) {
         return answerService.getAnswer(id);
     }
 
-    @GetMapping("/session/answers/{sessionId}")
+    @GetMapping(value = "/session/answers/{sessionId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<AnswersResponse>> getAnswersForSession(@PathVariable String sessionId) {
         return answerService.getAnswersForSessionId(sessionId);
     }
 
-    @PostMapping("/session")
+    @PostMapping(value = "/session", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<SessionResponse> createSession(@RequestBody SessionRequest sessionRequest,
                                                          Authentication authentication) {
@@ -79,7 +80,7 @@ public class AnswerController implements UserDetailsUtil {
         return sessionsService.createNewSession(sessionRequest, username);
     }
 
-    @PostMapping("/session/answer")
+    @PostMapping(value = "/session/answer", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<Integer> createAnswer(@RequestBody AnswersRequest answerRequest,
                                                 Authentication authentication) {
@@ -87,7 +88,7 @@ public class AnswerController implements UserDetailsUtil {
         return answerService.createNewAnswer(answerRequest, username);
     }
 
-    @PostMapping("/session/submit")
+    @PostMapping(value = "/session/submit", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<Integer> completeSession(@RequestBody Map<String, String> requestBody,
                                                    Authentication authentication) {

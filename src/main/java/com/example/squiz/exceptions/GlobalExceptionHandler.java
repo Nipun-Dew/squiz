@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(QuizNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleQuizNotFoundException(QuizNotFoundException ex) {
-        ErrorResponse errorResponse = new ErrorResponse("Quiz not found", ex.getMessage());
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleQuizNotFoundException(NotFoundException ex) {
+        ErrorResponse errorResponse = new ErrorResponse("Not found", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 

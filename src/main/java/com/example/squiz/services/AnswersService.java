@@ -6,9 +6,7 @@ import com.example.squiz.entities.SessionsEB;
 import com.example.squiz.entities.AnswersEB;
 import com.example.squiz.entities.ChoicesEB;
 import com.example.squiz.entities.QuestionsEB;
-import com.example.squiz.exceptions.customExceptions.InternalServerErrorException;
-import com.example.squiz.exceptions.customExceptions.NoContentException;
-import com.example.squiz.exceptions.customExceptions.UnauthorizedException;
+import com.example.squiz.exceptions.customExceptions.*;
 import com.example.squiz.repos.SessionsRepository;
 import com.example.squiz.repos.AnswersRepository;
 import com.example.squiz.repos.ChoiceRepository;
@@ -43,15 +41,48 @@ public class AnswersService {
 
     public ResponseEntity<AnswersResponse> getAnswer(String id) {
         try {
-            Optional<AnswersEB> optionalAnswer = answersRepository.findById(Long.parseLong(id));
+            if (!id.matches("\\d+")) {
+                throw new BadRequestException("Invalid answer ID format: " + id);
+            }
 
-            return optionalAnswer
-                    .map(answer -> ResponseEntity.ok(new AnswersResponse().createAnswerResponse(answer)))
-                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).body(new AnswersResponse()));
+            Long answerId = Long.parseLong(id);
+
+            AnswersEB answer = answersRepository.findById(answerId)
+                    .orElseThrow(() -> new NotFoundException("No answer found for ID: " + id));
+
+            AnswersResponse response = new AnswersResponse().createAnswerResponse(answer);
+            return ResponseEntity.ok(response);
+
+        } catch (BadRequestException | NotFoundException e) {
+            throw e;
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AnswersResponse());
+            throw new InternalServerErrorException("Unexpected error occurred while fetching answer: " + e.getMessage());
         }
     }
+
+    public ResponseEntity<List<AnswersResponse>> getAnswersForSessionId(String sessionId) {
+        try {
+            List<AnswersEB> results = answersRepository.findAnswersBySession_Id(Long.parseLong(sessionId));
+
+            if (results.isEmpty()) {
+                throw new NoContentException("No answers found for session ID: " + sessionId);
+            }
+
+            List<AnswersResponse> answersResponses = results.stream()
+                    .map(result -> new AnswersResponse().createAnswerResponse(result))
+                    .toList();
+
+            return ResponseEntity.ok(answersResponses);
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage());
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid session ID format: " + sessionId);
+        } catch (Exception e) {
+            throw new InternalServerErrorException("An unexpected error occurred while fetching answers for session ID: " + sessionId);
+        }
+    }
+
 
     public ResponseEntity<Integer> createNewAnswer(AnswersRequest answerRequest, String username) {
         try {
@@ -78,7 +109,7 @@ public class AnswersService {
                 List<ChoicesEB> choices = questionEntity.getChoices().stream().toList();
 
                 ChoicesEB correctChoiceForQuestion = Objects.requireNonNull(choices.stream().filter(ChoicesEB::getCorrectAnswer)
-                                .findAny().orElseThrow(() ->
+                        .findAny().orElseThrow(() ->
                                 new InternalServerErrorException("Don't have correct answer, something wrong with the question")));
 
                 boolean isCorrectChoice = userGivenChoice.getId().equals(correctChoiceForQuestion.getId());
@@ -99,19 +130,6 @@ public class AnswersService {
             throw e;
         } catch (Exception e) {
             throw new InternalServerErrorException("Unexpected error occurred while creating an Answer");
-        }
-    }
-
-    public ResponseEntity<List<AnswersResponse>> getAnswersForSessionId(String sessionId) {
-        try {
-            List<AnswersEB> results = answersRepository.findAnswersBySession_Id(Long.parseLong(sessionId));
-            List<AnswersResponse> answersResponses = results.stream()
-                    .map(result -> new AnswersResponse().createAnswerResponse(result))
-                    .toList();
-            return ResponseEntity.ok(answersResponses);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ArrayList<>());
         }
     }
 }

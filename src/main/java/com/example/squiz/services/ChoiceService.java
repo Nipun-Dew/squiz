@@ -2,6 +2,10 @@ package com.example.squiz.services;
 
 import com.example.squiz.dtos.ChoiceResponse;
 import com.example.squiz.entities.ChoicesEB;
+import com.example.squiz.exceptions.customExceptions.BadRequestException;
+import com.example.squiz.exceptions.customExceptions.InternalServerErrorException;
+import com.example.squiz.exceptions.customExceptions.NoContentException;
+import com.example.squiz.exceptions.customExceptions.NotFoundException;
 import com.example.squiz.repos.ChoiceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,25 +27,42 @@ public class ChoiceService {
 
     public ResponseEntity<ChoiceResponse> getChoice(String id) {
         try {
-            Optional<ChoicesEB> optionalChoice = choiceRepository.findById(Long.parseLong(id));
+            Long parsedId = Long.parseLong(id);
+            Optional<ChoicesEB> optionalChoice = choiceRepository.findById(parsedId);
 
             return optionalChoice.map(choice -> ResponseEntity.ok(new ChoiceResponse().createChoiceResponse(choice)))
-                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ChoiceResponse()));
+                    .orElseThrow(() -> new NoContentException("No choice found for ID: " + id));
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage());  // Converts 204 to 404
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid choice ID format: " + id);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ChoiceResponse());
+            throw new InternalServerErrorException("An unexpected error occurred while fetching choice: " + e.getMessage());
         }
     }
 
     public ResponseEntity<List<ChoiceResponse>> getChoicesForQuestion(String questionId) {
         try {
-            List<ChoicesEB> results = choiceRepository.findChoicesByQuestions_Id(Long.parseLong(questionId));
+            Long parsedQuestionId = Long.parseLong(questionId);  // Parse the question ID to Long
+            List<ChoicesEB> results = choiceRepository.findChoicesByQuestions_Id(parsedQuestionId);
+
+            if (results.isEmpty()) {
+                throw new NoContentException("No choices found for question ID: " + questionId);
+            }
+
             List<ChoiceResponse> choiceResponses = results.stream()
                     .map(result -> new ChoiceResponse().createChoiceResponse(result))
                     .toList();
+
             return ResponseEntity.ok(choiceResponses);
+
+        } catch (NoContentException e) {
+            throw new NotFoundException(e.getMessage());  // Converts 204 to 404
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid question ID format: " + questionId);  // Converts invalid ID format to 400
         } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ArrayList<>());
+            throw new InternalServerErrorException("An unexpected error occurred while fetching choices: " + e.getMessage());
         }
     }
 }

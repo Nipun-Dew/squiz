@@ -4,6 +4,7 @@ import com.example.squiz.dtos.ChoiceResponse;
 import com.example.squiz.services.ChoiceService;
 import com.example.squiz.utils.UserDetailsUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,13 +24,13 @@ public class ChoiceController implements UserDetailsUtil {
         this.choiceService = choiceService;
     }
 
-    @GetMapping("/choice/{id}")
+    @GetMapping(value = "/choice/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<ChoiceResponse> getChoiceById(@PathVariable String id) {
         return choiceService.getChoice(id);
     }
 
-    @GetMapping("/choice/question/{questionId}")
+    @GetMapping(value = "/choice/question/{questionId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     public ResponseEntity<List<ChoiceResponse>> getChoicesForQuestion(@PathVariable String questionId) {
         return choiceService.getChoicesForQuestion(questionId);
